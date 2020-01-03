@@ -605,15 +605,6 @@ static void VMRuntime_preloadDexCaches(JNIEnv* env, jobject) {
   if (kPreloadDexCachesCollectStats) {
     DexCacheStats after;
     PreloadDexCachesStatsFilled(&after);
-    LOG(INFO) << StringPrintf("VMRuntime.preloadDexCaches strings total=%d before=%d after=%d",
-                              total.num_strings, before.num_strings, after.num_strings);
-    LOG(INFO) << StringPrintf("VMRuntime.preloadDexCaches types total=%d before=%d after=%d",
-                              total.num_types, before.num_types, after.num_types);
-    LOG(INFO) << StringPrintf("VMRuntime.preloadDexCaches fields total=%d before=%d after=%d",
-                              total.num_fields, before.num_fields, after.num_fields);
-    LOG(INFO) << StringPrintf("VMRuntime.preloadDexCaches methods total=%d before=%d after=%d",
-                              total.num_methods, before.num_methods, after.num_methods);
-    LOG(INFO) << StringPrintf("VMRuntime.preloadDexCaches finished");
   }
 }
 

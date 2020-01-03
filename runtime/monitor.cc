@@ -47,7 +47,6 @@ namespace art {
 using android::base::StringPrintf;
 
 static constexpr uint64_t kDebugThresholdFudgeFactor = kIsDebugBuild ? 10 : 1;
-static constexpr uint64_t kLongWaitMs = 100 * kDebugThresholdFudgeFactor;
 
 /*
  * Every Object has a monitor associated with it, but not every Object is actually locked.  Even
@@ -542,32 +541,6 @@ void Monitor::Lock(Thread* self) {
                 // while running the checkpoint.
                 std::ostringstream self_trace_oss;
                 self->DumpJavaStack(self_trace_oss);
-
-                uint32_t pc;
-                ArtMethod* m = self->GetCurrentMethod(&pc);
-
-                LOG(WARNING) << "Long "
-                    << PrettyContentionInfo(original_owner_name,
-                                            original_owner_tid,
-                                            owners_method,
-                                            owners_dex_pc,
-                                            num_waiters)
-                    << " in " << ArtMethod::PrettyMethod(m) << " for "
-                    << PrettyDuration(MsToNs(wait_ms)) << "\n"
-                    << "Current owner stack:\n" << owner_stack_dump
-                    << "Contender stack:\n" << self_trace_oss.str();
-              } else if (wait_ms > kLongWaitMs && owners_method != nullptr) {
-                uint32_t pc;
-                ArtMethod* m = self->GetCurrentMethod(&pc);
-                // TODO: We should maybe check that original_owner is still a live thread.
-                LOG(WARNING) << "Long "
-                    << PrettyContentionInfo(original_owner_name,
-                                            original_owner_tid,
-                                            owners_method,
-                                            owners_dex_pc,
-                                            num_waiters)
-                    << " in " << ArtMethod::PrettyMethod(m) << " for "
-                    << PrettyDuration(MsToNs(wait_ms));
               }
               LogContentionEvent(self,
                                 wait_ms,
@@ -961,13 +934,6 @@ void Monitor::Inflate(Thread* self, Thread* owner, mirror::Object* obj, int32_t 
   Monitor* m = MonitorPool::CreateMonitor(self, owner, obj, hash_code);
   DCHECK(m != nullptr);
   if (m->Install(self)) {
-    if (owner != nullptr) {
-      VLOG(monitor) << "monitor: thread" << owner->GetThreadId()
-          << " created monitor " << m << " for object " << obj;
-    } else {
-      VLOG(monitor) << "monitor: Inflate with hashcode " << hash_code
-          << " created monitor " << m << " for object " << obj;
-    }
     Runtime::Current()->GetMonitorList()->Add(m);
     CHECK_EQ(obj->GetLockWord(true).GetState(), LockWord::kFatLocked);
   } else {

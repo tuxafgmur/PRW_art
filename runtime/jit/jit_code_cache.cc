@@ -53,7 +53,6 @@ namespace jit {
 static constexpr int kProtData = PROT_READ | PROT_WRITE;
 static constexpr int kProtCode = PROT_READ | PROT_EXEC;
 
-static constexpr size_t kCodeSizeLogThreshold = 50 * KB;
 static constexpr size_t kStackMapSizeLogThreshold = 50 * KB;
 
 class JitCodeCache::JniStubKey {
@@ -301,11 +300,6 @@ JitCodeCache::JitCodeCache(MemMap* code_map,
               data_map_->Begin(),
               data_map_->Size(),
               kProtData);
-
-  VLOG(jit) << "Created jit code cache: initial data size="
-            << PrettySize(initial_data_capacity)
-            << ", initial code size="
-            << PrettySize(initial_code_capacity);
 }
 
 JitCodeCache::~JitCodeCache() {}
@@ -869,12 +863,6 @@ uint8_t* JitCodeCache::CommitCodeInternal(Thread* self,
         << reinterpret_cast<const void*>(method_header->GetEntryPoint() +
                                          method_header->GetCodeSize());
     histogram_code_memory_use_.AddValue(code_size);
-    if (code_size > kCodeSizeLogThreshold) {
-      LOG(INFO) << "JIT allocated "
-                << PrettySize(code_size)
-                << " for compiled code of "
-                << ArtMethod::PrettyMethod(method);
-    }
   }
 
   return reinterpret_cast<uint8_t*>(method_header);

@@ -584,11 +584,12 @@ bool Jit::MaybeDoOnStackReplacement(Thread* thread,
 
 void Jit::AddMemoryUsage(ArtMethod* method, size_t bytes) {
   if (bytes > 4 * MB) {
-    LOG(INFO) << "Compiler allocated "
+    VLOG(jit) << "Compiler allocated "
               << PrettySize(bytes)
               << " to compile "
               << ArtMethod::PrettyMethod(method);
   }
+    
   MutexLock mu(Thread::Current(), lock_);
   memory_use_.AddValue(bytes);
 }

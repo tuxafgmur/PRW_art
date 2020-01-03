@@ -65,8 +65,6 @@ namespace verifier {
 
 using android::base::StringPrintf;
 
-static constexpr bool kTimeVerifyMethod = !kIsDebugBuild;
-
 // On VLOG(verifier), should we dump the whole state when we run into a hard failure?
 static constexpr bool kDumpRegLinesOnHardFailureIfVLOG = true;
 
@@ -340,31 +338,12 @@ FailureKind MethodVerifier::VerifyClass(Thread* self,
     return FailureKind::kNoFailure;
   } else {
     if ((data1.types & VERIFY_ERROR_LOCKING) != 0) {
-      // Print a warning about expected slow-down. Use a string temporary to print one contiguous
-      // warning.
-      std::string tmp =
-          StringPrintf("Class %s failed lock verification and will run slower.",
-                       PrettyDescriptor(dex_file->GetClassDescriptor(class_def)).c_str());
       if (!gPrintedDxMonitorText) {
-        tmp = tmp + "\nCommon causes for lock verification issues are non-optimized dex code\n"
-                    "and incorrect proguard optimizations.";
         gPrintedDxMonitorText = true;
       }
-      LOG(WARNING) << tmp;
     }
     return data1.kind;
   }
-}
-
-static bool IsLargeMethod(const CodeItemDataAccessor& accessor) {
-  if (!accessor.HasCodeItem()) {
-    return false;
-  }
-
-  uint16_t registers_size = accessor.RegistersSize();
-  uint32_t insns_size = accessor.InsnsSizeInCodeUnits();
-
-  return registers_size * insns_size > 4*1024*1024;
 }
 
 MethodVerifier::FailureData MethodVerifier::VerifyMethod(Thread* self,
@@ -382,8 +361,6 @@ MethodVerifier::FailureData MethodVerifier::VerifyMethod(Thread* self,
                                                          bool need_precise_constants,
                                                          std::string* hard_failure_msg) {
   MethodVerifier::FailureData result;
-  uint64_t start_ns = kTimeVerifyMethod ? NanoTime() : 0;
-
   MethodVerifier verifier(self,
                           dex_file,
                           dex_cache,
@@ -493,14 +470,6 @@ MethodVerifier::FailureData MethodVerifier::VerifyMethod(Thread* self,
     if (VLOG_IS_ON(verifier) || VLOG_IS_ON(verifier_debug)) {
       std::cout << "\n" << verifier.info_messages_.str();
       verifier.Dump(std::cout);
-    }
-  }
-  if (kTimeVerifyMethod) {
-    uint64_t duration_ns = NanoTime() - start_ns;
-    if (duration_ns > MsToNs(100)) {
-      LOG(WARNING) << "Verification of " << dex_file->PrettyMethod(method_idx)
-                   << " took " << PrettyDuration(duration_ns)
-                   << (IsLargeMethod(verifier.CodeItem()) ? " (large method)" : "");
     }
   }
   result.types = verifier.encountered_failure_types_;
@@ -661,8 +630,6 @@ bool MethodVerifier::Verify() {
     }
     is_constructor_ = true;
   } else if (constructor_by_name) {
-    LOG(WARNING) << "Method " << dex_file_->PrettyMethod(dex_method_idx_)
-                 << " not marked as constructor.";
     is_constructor_ = true;
   }
   // If it's a constructor, check whether IsStatic() matches the name.

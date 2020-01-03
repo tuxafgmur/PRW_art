@@ -61,7 +61,6 @@ namespace art {
 
 using android::base::StringPrintf;
 
-static constexpr uint64_t kLongThreadSuspendThreshold = MsToNs(5);
 // Use 0 since we want to yield to prevent blocking for an unpredictable amount of time.
 static constexpr useconds_t kThreadSuspendInitialSleepUs = 0;
 static constexpr useconds_t kThreadSuspendMaxYieldUs = 3000;
@@ -674,9 +673,6 @@ void ThreadList::SuspendAll(const char* cause, bool long_suspend) {
     const uint64_t end_time = NanoTime();
     const uint64_t suspend_time = end_time - start_time;
     suspend_all_historam_.AdjustAndAddValue(suspend_time);
-    if (suspend_time > kLongThreadSuspendThreshold) {
-      LOG(WARNING) << "Suspending all threads took: " << PrettyDuration(suspend_time);
-    }
 
     if (kDebugLocking) {
       // Debug check that all threads are suspended.

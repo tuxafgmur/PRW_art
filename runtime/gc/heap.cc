@@ -136,9 +136,6 @@ static constexpr bool kDumpRosAllocStatsOnSigQuit = false;
 
 static const char* kRegionSpaceName = "main space (region space)";
 
-// If true, we log all GCs in the both the foreground and background. Used for debugging.
-static constexpr bool kLogAllGCs = false;
-
 // How much we grow the TLAB if we can do it.
 static constexpr size_t kPartialTlabSize = 16 * KB;
 static constexpr bool kUsePartialTlabs = true;
@@ -802,9 +799,6 @@ void Heap::IncrementDisableThreadFlip(Thread* self) {
   if (has_waited) {
     uint64_t wait_time = NanoTime() - wait_start;
     total_wait_time_ += wait_time;
-    if (wait_time > long_pause_log_threshold_) {
-      LOG(INFO) << __FUNCTION__ << " blocked for " << PrettyDuration(wait_time);
-    }
   }
 }
 
@@ -835,7 +829,6 @@ void Heap::ThreadFlipBegin(Thread* self) {
   ScopedThreadStateChange tsc(self, kWaitingForGcThreadFlip);
   MutexLock mu(self, *thread_flip_lock_);
   bool has_waited = false;
-  uint64_t wait_start = NanoTime();
   CHECK(!thread_flip_running_);
   // Set this to true before waiting so that frequent JNI critical enter/exits won't starve
   // GC. This like a writer preference of a reader-writer lock.
@@ -843,13 +836,6 @@ void Heap::ThreadFlipBegin(Thread* self) {
   while (disable_thread_flip_count_ > 0) {
     has_waited = true;
     thread_flip_cond_->Wait(self);
-  }
-  if (has_waited) {
-    uint64_t wait_time = NanoTime() - wait_start;
-    total_wait_time_ += wait_time;
-    if (wait_time > long_pause_log_threshold_) {
-      LOG(INFO) << __FUNCTION__ << " blocked for " << PrettyDuration(wait_time);
-    }
   }
 }
 
@@ -1138,11 +1124,6 @@ Heap::~Heap() {
   delete thread_flip_lock_;
   delete pending_task_lock_;
   delete backtrace_lock_;
-  if (unique_backtrace_count_.LoadRelaxed() != 0 || seen_backtrace_count_.LoadRelaxed() != 0) {
-    LOG(INFO) << "gc stress unique=" << unique_backtrace_count_.LoadRelaxed()
-        << " total=" << seen_backtrace_count_.LoadRelaxed() +
-            unique_backtrace_count_.LoadRelaxed();
-  }
 
   VLOG(heap) << "Finished ~Heap()";
 }
@@ -2639,7 +2620,7 @@ void Heap::LogGC(GcCause gc_cause, collector::GarbageCollector* collector) {
   const std::vector<uint64_t>& pause_times = GetCurrentGcIteration()->GetPauseTimes();
   // Print the GC if it is an explicit GC (e.g. Runtime.gc()) or a slow GC
   // (mutator time blocked >= long_pause_log_threshold_).
-  bool log_gc = kLogAllGCs || gc_cause == kGcCauseExplicit;
+  bool log_gc = false; //kLogAllGCs || gc_cause == kGcCauseExplicit;
   if (!log_gc && CareAboutPauseTimes()) {
     // GC for alloc pauses the allocating thread, so consider it as a pause.
     log_gc = duration > long_gc_log_threshold_ ||
@@ -2649,22 +2630,13 @@ void Heap::LogGC(GcCause gc_cause, collector::GarbageCollector* collector) {
     }
   }
   if (log_gc) {
-    const size_t percent_free = GetPercentFree();
-    const size_t current_heap_size = GetBytesAllocated();
-    const size_t total_memory = GetTotalMemory();
     std::ostringstream pause_string;
     for (size_t i = 0; i < pause_times.size(); ++i) {
       pause_string << PrettyDuration((pause_times[i] / 1000) * 1000)
                    << ((i != pause_times.size() - 1) ? "," : "");
     }
     LOG(INFO) << gc_cause << " " << collector->GetName()
-              << " GC freed "  << current_gc_iteration_.GetFreedObjects() << "("
-              << PrettySize(current_gc_iteration_.GetFreedBytes()) << ") AllocSpace objects, "
-              << current_gc_iteration_.GetFreedLargeObjects() << "("
-              << PrettySize(current_gc_iteration_.GetFreedLargeObjectBytes()) << ") LOS objects, "
-              << percent_free << "% free, " << PrettySize(current_heap_size) << "/"
-              << PrettySize(total_memory) << ", " << "paused " << pause_string.str()
-              << " total " << PrettyDuration((duration / 1000) * 1000);
+              << " GC freed ";
     VLOG(heap) << Dumpable<TimingLogger>(*current_gc_iteration_.GetTimings());
   }
 }
@@ -3369,10 +3341,6 @@ collector::GcType Heap::WaitForGcToCompleteLocked(GcCause cause, Thread* self) {
   }
   uint64_t wait_time = NanoTime() - wait_start;
   total_wait_time_ += wait_time;
-  if (wait_time > long_pause_log_threshold_) {
-    LOG(INFO) << "WaitForGcToComplete blocked " << cause << " on " << last_gc_cause << " for "
-              << PrettyDuration(wait_time);
-  }
   if (self != task_processor_->GetRunningThread()) {
     // The current thread is about to run a collection. If the thread
     // is not the heap task daemon thread, it's considered as a

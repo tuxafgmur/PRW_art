@@ -88,8 +88,6 @@
 
 namespace art {
 
-static constexpr bool kTimeCompileMethod = !kIsDebugBuild;
-
 // Print additional info during profile guided compilation.
 static constexpr bool kDebugProfileGuidedCompilation = false;
 
@@ -467,7 +465,6 @@ static void CompileMethodHarness(
     CompileFn compile_fn) {
   DCHECK(driver != nullptr);
   CompiledMethod* compiled_method;
-  uint64_t start_ns = kTimeCompileMethod ? NanoTime() : 0;
   MethodReference method_ref(&dex_file, method_idx);
 
   compiled_method = compile_fn(self,
@@ -482,14 +479,6 @@ static void CompileMethodHarness(
                                dex_to_dex_compilation_level,
                                compilation_enabled,
                                dex_cache);
-
-  if (kTimeCompileMethod) {
-    uint64_t duration_ns = NanoTime() - start_ns;
-    if (duration_ns > MsToNs(driver->GetCompiler()->GetMaximumCompilationTimeBeforeWarning())) {
-      LOG(WARNING) << "Compilation of " << dex_file.PrettyMethod(method_idx)
-                   << " took " << PrettyDuration(duration_ns);
-    }
-  }
 
   if (compiled_method != nullptr) {
     // Count non-relative linker patches.

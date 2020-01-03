@@ -221,8 +221,6 @@ void ClassLinker::ThrowEarlierClassFailure(ObjPtr<mirror::Class> c, bool wrap_in
         extra = verify_error->AsThrowable()->Dump();
       }
     }
-    LOG(INFO) << "Rejecting re-init on previously-failed class " << c->PrettyClass()
-              << ": " << extra;
   }
 
   CHECK(c->IsErroneous()) << c->PrettyClass() << " " << c->GetStatus();
@@ -3837,7 +3835,6 @@ mirror::Class* ClassLinker::InsertClass(const char* descriptor, ObjPtr<mirror::C
       source += " from ";
       source += dex_cache->GetLocation()->ToModifiedUtf8();
     }
-    LOG(INFO) << "Loaded class " << descriptor << source;
   }
   {
     WriterMutexLock mu(Thread::Current(), *Locks::classlinker_classes_lock_);

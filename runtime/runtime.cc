@@ -316,8 +316,6 @@ Runtime::~Runtime() {
                                 /* Create peer */ false));
     }
     self = Thread::Current();
-  } else {
-    LOG(WARNING) << "Current thread not detached in Runtime shutdown";
   }
 
   if (dump_gc_performance_on_shutdown_) {
@@ -598,7 +596,6 @@ void Runtime::CallExitHook(jint status) {
   if (exit_ != nullptr) {
     ScopedThreadStateChange tsc(Thread::Current(), kNative);
     exit_(status);
-    LOG(WARNING) << "Exit hook returned instead of exiting!";
   }
 }
 
@@ -1083,7 +1080,6 @@ static size_t OpenDexFiles(const std::vector<std::string>& dex_filenames,
     static constexpr bool kVerifyChecksum = true;
     std::string error_msg;
     if (!OS::FileExists(dex_filename)) {
-      LOG(WARNING) << "Skipping non-existent dex file '" << dex_filename << "'";
       continue;
     }
     if (!dex_file_loader.Open(dex_filename,
@@ -1140,9 +1136,7 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
                                                      /* reuse */ false,
                                                      /* error_msg */ nullptr));
     if (protected_fault_page_ == nullptr) {
-      LOG(WARNING) << "Could not reserve sentinel fault page";
     } else if (reinterpret_cast<uintptr_t>(protected_fault_page_->Begin()) != kSentinelAddr) {
-      LOG(WARNING) << "Could not reserve sentinel fault page at the right address.";
       protected_fault_page_.reset();
     }
   }
@@ -1927,9 +1921,6 @@ bool Runtime::AttachCurrentThread(const char* thread_name, bool as_daemon, jobje
 void Runtime::DetachCurrentThread() {
   ScopedTrace trace(__FUNCTION__);
   Thread* self = Thread::Current();
-  if (self == nullptr) {
-    LOG(FATAL) << "attempting to detach thread that is not attached";
-  }
   if (self->HasManagedStack()) {
     LOG(FATAL) << *Thread::Current() << " attempting to detach while still running code";
   }
